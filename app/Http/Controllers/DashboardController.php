@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\File;
-use App\Models\Folder;
+use App\Models\Catalog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -16,15 +16,7 @@ class DashboardController extends Controller
     public function index()
     {
         $user = Auth::user();
-        
-        // Get user's folders
-        $folders = Folder::where('user_id', $user->id)
-            ->whereNull('parent_id')
-            ->withCount('files')
-            ->orderBy('updated_at', 'desc')
-            ->limit(8)
-            ->get();
-        
+
         // Get recent files
         $recentFiles = File::where('user_id', $user->id)
             ->whereNull('deleted_at')
@@ -32,7 +24,7 @@ class DashboardController extends Controller
             ->limit(10)
             ->get();
         
-        // Calculate statistics
+    // Calculate statistics
         $stats = [
             'total_files' => File::where('user_id', $user->id)
                 ->whereNull('deleted_at')
@@ -61,6 +53,13 @@ class DashboardController extends Controller
                 ->sum('size'),
         ];
         
-        return view('dashboard.index', compact('folders', 'recentFiles', 'stats'));
+        // Top catalogs to display on dashboard
+        $catalogs = Catalog::query()
+            ->orderBy('name')
+            ->withCount('files')
+            ->limit(8)
+            ->get();
+        
+        return view('dashboard.index', compact('recentFiles', 'stats', 'catalogs'));
     }
 }

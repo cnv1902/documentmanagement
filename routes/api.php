@@ -4,7 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\FileController;
-use App\Http\Controllers\Api\FolderController;
+use App\Http\Controllers\Api\CatalogController;
 
 /*
 |--------------------------------------------------------------------------
@@ -43,13 +43,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/files/favourites/list', [FileController::class, 'favourites']);
     Route::get('/files/recent/list', [FileController::class, 'recent']);
     
-    // Folder endpoints
-    Route::get('/folders', [FolderController::class, 'index']);
-    Route::post('/folders', [FolderController::class, 'store']);
-    Route::get('/folders/{id}', [FolderController::class, 'show']);
-    Route::put('/folders/{id}', [FolderController::class, 'update']);
-    Route::delete('/folders/{id}', [FolderController::class, 'destroy']);
-    Route::get('/folders/tree/all', [FolderController::class, 'tree']);
+    // Catalog endpoints
+    Route::get('/catalogs', [CatalogController::class, 'index']);
+    Route::post('/catalogs', [CatalogController::class, 'store']);
+    Route::put('/catalogs/{catalog}', [CatalogController::class, 'update']);
+    Route::delete('/catalogs/{catalog}', [CatalogController::class, 'destroy']);
+    Route::post('/catalogs/{catalog}/toggle', [CatalogController::class, 'toggle']);
     
     // User info
     Route::get('/user', function (Request $request) {

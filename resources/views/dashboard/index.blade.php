@@ -48,41 +48,33 @@
             <div class="card card-block card-stretch card-transparent">
                 <div class="card-header d-flex justify-content-between pb-0">
                     <div class="header-title">
-                        <h4 class="card-title">Thư mục</h4>
+                        <h4 class="card-title">Danh mục</h4>
                     </div>
                     <div class="card-header-toolbar d-flex align-items-center">
-                        <a href="{{ route('folders.index') }}" class="text-primary">Xem tất cả</a>
+                        <a href="{{ route('catalogs.index') }}" class="text-primary">Xem tất cả</a>
                     </div>
                 </div>
             </div>
         </div>
-        
-        @foreach($folders ?? [] as $folder)
+
+        @foreach($catalogs ?? [] as $catalog)
         <div class="col-lg-3 col-md-6 col-sm-6">
             <div class="card card-block card-stretch card-height">
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
-                        <a href="{{ route('folders.show', $folder->id) }}" class="folder">
+                        <div class="folder">
                             <div class="icon-small bg-primary mb-4 rounded">
-                                <i class="ri-folder-2-line"></i>
+                                <i class="ri-folder-open-line"></i>
                             </div>
-                            <h6>{{ $folder->name }}</h6>
-                        </a>
+                            <h6 class="mb-1">{{ $catalog->name }}</h6>
+                            <p class="mb-2 text-muted small">{{ Str::limit($catalog->description, 60) }}</p>
+                        </div>
                         <div class="card-header-toolbar">
-                            <div class="dropdown">
-                                <span class="dropdown-toggle" id="dropdownMenuButton-{{ $folder->id }}" data-toggle="dropdown">
-                                    <i class="ri-more-2-fill"></i>
-                                </span>
-                                <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuButton-{{ $folder->id }}">
-                                    <a class="dropdown-item" href="{{ route('folders.show', $folder->id) }}"><i class="las la-eye mr-2"></i>Xem</a>
-                                    <a class="dropdown-item" href="{{ route('folders.edit', $folder->id) }}"><i class="las la-pen mr-2"></i>Sửa</a>
-                                    <a class="dropdown-item" href="#" onclick="deleteFolder({{ $folder->id }})"><i class="las la-trash-alt mr-2"></i>Xóa</a>
-                                </div>
-                            </div>
+                            <a href="{{ route('catalogs.index') }}" class="btn btn-sm btn-outline-primary">Quản lý</a>
                         </div>
                     </div>
-                    <p class="mb-2">{{ $folder->files_count ?? 0 }} Files</p>
-                    <p class="mb-0"><small>{{ $folder->updated_at->diffForHumans() }}</small></p>
+                    <p class="mb-2">{{ $catalog->files_count ?? 0 }} Files</p>
+                    <p class="mb-0"><small>{{ $catalog->updated_at->diffForHumans() }}</small></p>
                 </div>
             </div>
         </div>
@@ -195,25 +187,25 @@
 
 @push('scripts')
 <script>
-function deleteFolder(id) {
-    if (confirm('Are you sure you want to delete this folder?')) {
-        fetch(`/api/folders/${id}`, {
+function deleteCatalog(id) {
+    if (confirm('Bạn có chắc muốn xoá danh mục này?')) {
+        fetch(`/api/catalogs/${id}`, {
             method: 'DELETE',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
                 'Accept': 'application/json',
             }
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
+        .then(async (response) => {
+            const data = await response.json().catch(() => ({}));
+            if (response.ok) {
                 location.reload();
             } else {
-                alert(data.message || 'Failed to delete folder');
+                alert(data.message || 'Không thể xoá danh mục');
             }
         })
         .catch(error => {
-            alert('An error occurred');
+            alert('Có lỗi xảy ra');
             console.error(error);
         });
     }

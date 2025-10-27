@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FileController;
-use App\Http\Controllers\FolderController;
+use App\Http\Controllers\CatalogController;
 
 /*
 |--------------------------------------------------------------------------
@@ -49,13 +49,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/files/{id}/restore', [FileController::class, 'restore'])->name('files.restore');
     Route::delete('/files/{id}/force', [FileController::class, 'forceDelete'])->name('files.forceDelete');
     
-    // Folders
-    Route::get('/folders', [FolderController::class, 'index'])->name('folders.index');
-    Route::post('/folders', [FolderController::class, 'store'])->name('folders.store');
-    Route::get('/folders/{id}', [FolderController::class, 'show'])->name('folders.show');
-    Route::get('/folders/{id}/edit', [FolderController::class, 'edit'])->name('folders.edit');
-    Route::put('/folders/{id}', [FolderController::class, 'update'])->name('folders.update');
-    Route::delete('/folders/{id}', [FolderController::class, 'destroy'])->name('folders.destroy');
+    // Catalogs (Danh mục tài liệu)
+    Route::get('/catalogs', [CatalogController::class, 'index'])->name('catalogs.index');
+    Route::post('/catalogs', [CatalogController::class, 'store'])->name('catalogs.store');
+    Route::put('/catalogs/{catalog}', [CatalogController::class, 'update'])->name('catalogs.update');
+    Route::delete('/catalogs/{catalog}', [CatalogController::class, 'destroy'])->name('catalogs.destroy');
+    Route::post('/catalogs/{catalog}/toggle', [CatalogController::class, 'toggle'])->name('catalogs.toggle');
     
     // Special pages
     Route::get('/recent', function () {

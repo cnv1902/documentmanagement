@@ -23,6 +23,7 @@ class File extends Model
     protected $fillable = [
         'user_id',
         'folder_id',
+        'catalog_id',
         'name',
         'filename',
         'path',
@@ -50,9 +51,13 @@ class File extends Model
     /**
      * Get the folder that contains the file
      */
-    public function folder()
+
+    /**
+     * Get the catalog that this file belongs to
+     */
+    public function catalog()
     {
-        return $this->belongsTo(Folder::class);
+        return $this->belongsTo(Catalog::class);
     }
 
     /**

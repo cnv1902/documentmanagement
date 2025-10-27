@@ -16,9 +16,11 @@
                     <span class="caret"><!--icon--></span>
                 </div>
                 <ul class="dropdown-menu">
-                    <li><div class="item" onclick="createFolder()"><i class="ri-folder-add-line pr-3"></i>Thư mục mới</div></li>
-                    <li><div class="item" onclick="uploadFiles()"><i class="ri-file-upload-line pr-3"></i>Tải lên tệp</div></li>
-                    <li><div class="item" onclick="uploadFolders()"><i class="ri-folder-upload-line pr-3"></i>Tải lên thư mục</div></li>
+                    <li>
+                        <a class="item" href="{{ route('catalogs.index') }}">
+                            <i class="ri-folder-add-line pr-3"></i>Danh mục mới
+                        </a>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -29,21 +31,10 @@
                         <i class="las la-home iq-arrow-left"></i><span>Bảng điều khiển</span>
                     </a>
                 </li>
-                <li class="{{ request()->is('mydrive*') ? 'active' : '' }}">
-                    <a href="#mydrive" class="collapsed" data-toggle="collapse" aria-expanded="false">
-                        <i class="las la-hdd"></i><span>Ổ đĩa của tôi</span>
-                        <i class="las la-angle-right iq-arrow-right arrow-active"></i>
-                        <i class="las la-angle-down iq-arrow-right arrow-hover"></i>
+                <li class="{{ request()->routeIs('catalogs.*') ? 'active' : '' }}">
+                    <a href="{{ route('catalogs.index') }}" class="">
+                        <i class="las la-folder-open"></i><span>Danh mục tài liệu</span>
                     </a>
-                    <ul id="mydrive" class="iq-submenu collapse" data-parent="#iq-sidebar-toggle">
-                        @foreach(auth()->user()->folders ?? [] as $folder)
-                        <li>
-                            <a href="{{ route('folders.show', $folder->id) }}">
-                                <i class="las la-folder"></i><span>{{ $folder->name }}</span>
-                            </a>
-                        </li>
-                        @endforeach
-                    </ul>
                 </li>
                 <li class="{{ request()->routeIs('files.index') ? 'active' : '' }}">
                     <a href="{{ route('files.index') }}" class="">
