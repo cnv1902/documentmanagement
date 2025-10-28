@@ -36,6 +36,16 @@
                         <i class="las la-folder-open"></i><span>Danh mục tài liệu</span>
                     </a>
                 </li>
+                <li class="{{ request()->routeIs('publishers.*') ? 'active' : '' }}">
+                    <a href="{{ route('publishers.index') }}" class="">
+                        <i class="las la-brush"></i><span>Nhà xuất bản</span>
+                    </a>
+                </li>
+                <li class="{{ request()->routeIs('authors.*') ? 'active' : '' }}">
+                    <a href="{{ route('authors.index') }}" class="">
+                        <i class="las la-id-card"></i><span>Tác giả</span>
+                    </a>
+                </li>
                 <li class="{{ request()->routeIs('files.index') ? 'active' : '' }}">
                     <a href="{{ route('files.index') }}" class="">
                         <i class="lar la-file-alt iq-arrow-left"></i><span>Tệp</span>

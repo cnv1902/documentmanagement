@@ -5,198 +5,209 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\File;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 
 class FileController extends Controller
 {
     /**
-     * Get all files
+     * Display a listing of files
      */
     public function index(Request $request)
     {
-        $query = File::where('user_id', Auth::id())
-            ->whereNull('deleted_at');
-        
-        if ($request->has('folder_id')) {
-            $query->where('folder_id', $request->folder_id);
-        }
-        
-        if ($request->has('search')) {
-            $query->where('name', 'like', '%' . $request->search . '%');
-        }
-        
-        if ($request->has('sort_by')) {
-            $sortOrder = $request->get('sort_order', 'desc');
-            $query->orderBy($request->sort_by, $sortOrder);
-        } else {
-            $query->orderBy('created_at', 'desc');
-        }
-        
-        $perPage = $request->get('per_page', 20);
-        $files = $query->paginate($perPage);
-        
-        return response()->json([
-            'success' => true,
-            'data' => $files,
-        ]);
-    }
+        $q = $request->input('q');
+        $catalogId = $request->input('catalog_id');
+        $publisherId = $request->input('publisher_id');
+        $approved = $request->input('approved');
+        $isFavourite = $request->input('is_favourite');
+        $perPage = (int) $request->input('per_page', 15);
 
-    /**
-     * Get a single file
-     */
-    public function show($id)
-    {
-        $file = File::where('user_id', Auth::id())
+        $query = File::query()
+            ->with(['authors', 'publisher', 'catalog'])
+            ->where('user_id', auth()->id())
             ->whereNull('deleted_at')
-            ->findOrFail($id);
-        
+            ->when($q, fn($builder) => $builder->where('name', 'like', "%{$q}%"))
+            ->when($catalogId, fn($builder) => $builder->where('catalog_id', $catalogId))
+            ->when($publisherId, fn($builder) => $builder->where('publisher_id', $publisherId))
+            ->when(isset($approved), fn($builder) => $builder->where('approved', $approved))
+            ->when(isset($isFavourite), fn($builder) => $builder->where('is_favourite', $isFavourite))
+            ->orderByDesc('created_at');
+
+        $files = $query->paginate($perPage)->appends($request->query());
+
         return response()->json([
             'success' => true,
-            'data' => $file,
+            'data' => $files->items(),
+            'meta' => [
+                'current_page' => $files->currentPage(),
+                'last_page' => $files->lastPage(),
+                'per_page' => $files->perPage(),
+                'total' => $files->total(),
+            ],
         ]);
     }
 
     /**
-     * Upload a new file
+     * Store a newly created file
      */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'file' => 'required|file|max:102400', // Max 100MB
-            'folder_id' => 'nullable|exists:folders,id',
+            'name' => 'required|string|max:255',
+            'file' => 'required|file|max:51200', // 50MB max
+            'catalog_id' => 'nullable|exists:catalogs,id',
+            'publisher_id' => 'nullable|exists:publishers,id',
+            'author_ids' => 'nullable|array',
+            'author_ids.*' => 'exists:authors,id',
+            'approved' => 'nullable|boolean',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'success' => false,
-                'message' => 'Validation error',
-                'errors' => $validator->errors(),
-            ], 422);
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        // Upload file
         $uploadedFile = $request->file('file');
-        $user = Auth::user();
-
-        // Check storage limit
-        $fileSize = $uploadedFile->getSize();
-        if (($user->storage_used + $fileSize) > $user->storage_limit) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Not enough storage space',
-            ], 422);
-        }
-
-        // Store file
-        $filename = Str::random(40) . '.' . $uploadedFile->getClientOriginalExtension();
-        $path = $uploadedFile->storeAs('files/' . $user->id, $filename, 'local');
+        $filename = time() . '_' . $uploadedFile->getClientOriginalName();
+        $path = $uploadedFile->storeAs('files', $filename, 'public');
 
         // Create file record
         $file = File::create([
-            'user_id' => $user->id,
-            'folder_id' => $request->folder_id,
-            'name' => $uploadedFile->getClientOriginalName(),
+            'user_id' => auth()->id(),
+            'name' => $request->name,
             'filename' => $filename,
             'path' => $path,
             'size' => $uploadedFile->getSize(),
             'mime_type' => $uploadedFile->getMimeType(),
+            'catalog_id' => $request->catalog_id,
+            'publisher_id' => $request->publisher_id,
+            'approved' => $request->boolean('approved', false),
         ]);
 
-        // Update user storage
-        $user->storage_used = $user->storage_used + $uploadedFile->getSize();
-        $user->save();
+        // Attach authors (many-to-many)
+        if ($request->has('author_ids')) {
+            $file->authors()->attach($request->author_ids);
+        }
+
+        $file->load(['authors', 'publisher', 'catalog']);
 
         return response()->json([
             'success' => true,
-            'message' => 'File uploaded successfully',
-            'data' => $file,
-        ], 201);
+            'message' => 'Upload file thành công.',
+            'data' => $file
+        ], Response::HTTP_CREATED);
     }
 
     /**
-     * Update file information
+     * Display the specified file
+     */
+    public function show($id)
+    {
+        $file = File::with(['authors', 'publisher', 'catalog'])
+            ->where('user_id', auth()->id())
+            ->findOrFail($id);
+
+    return response()->json(['success' => true, 'data' => $file]);
+    }
+
+    /**
+     * Update the specified file
      */
     public function update(Request $request, $id)
     {
-        $file = File::where('user_id', Auth::id())
-            ->whereNull('deleted_at')
-            ->findOrFail($id);
+        $file = File::where('user_id', auth()->id())->findOrFail($id);
 
         $validator = Validator::make($request->all(), [
-            'name' => 'sometimes|string|max:255',
-            'folder_id' => 'nullable|exists:folders,id',
-            'is_favourite' => 'sometimes|boolean',
+            'name' => 'required|string|max:255',
+            'catalog_id' => 'nullable|exists:catalogs,id',
+            'publisher_id' => 'nullable|exists:publishers,id',
+            'author_ids' => 'nullable|array',
+            'author_ids.*' => 'exists:authors,id',
+            'is_favourite' => 'nullable|boolean',
+            'approved' => 'nullable|boolean',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'success' => false,
-                'message' => 'Validation error',
-                'errors' => $validator->errors(),
-            ], 422);
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $file->update($request->only(['name', 'folder_id', 'is_favourite']));
+        // Update file info
+        $file->update($request->only([
+            'name',
+            'catalog_id',
+            'publisher_id',
+            'is_favourite',
+            'approved'
+        ]));
+
+        // Sync authors
+        if ($request->has('author_ids')) {
+            $file->authors()->sync($request->author_ids);
+        }
+
+        $file->load(['authors', 'publisher', 'catalog']);
 
         return response()->json([
             'success' => true,
-            'message' => 'File updated successfully',
-            'data' => $file,
+            'message' => 'Cập nhật file thành công.',
+            'data' => $file
         ]);
     }
 
     /**
-     * Download a file
-     */
-    public function download($id)
-    {
-        $file = File::where('user_id', Auth::id())
-            ->whereNull('deleted_at')
-            ->findOrFail($id);
-        
-        if (!Storage::disk('local')->exists($file->path)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'File not found on storage',
-            ], 404);
-        }
-        
-        return response()->download(storage_path('app/' . $file->path), $file->name);
-    }
-
-    /**
-     * Move file to trash (soft delete)
+     * Soft delete the specified file
      */
     public function destroy($id)
     {
-        $file = File::where('user_id', Auth::id())
-            ->whereNull('deleted_at')
-            ->findOrFail($id);
-        
-        $file->deleted_at = now();
-        $file->save();
+        $file = File::where('user_id', auth()->id())->findOrFail($id);
+        $file->update(['deleted_at' => now()]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'File moved to trash',
-        ]);
+    return response()->json(['success' => true, 'message' => 'Đã chuyển file vào thùng rác.']);
+    }
+
+    /**
+     * Download file
+     */
+    public function download($id)
+    {
+        $file = File::where('user_id', auth()->id())->findOrFail($id);
+
+        if (!Storage::disk('public')->exists($file->path)) {
+            return response()->json(['message' => 'File không tồn tại.'], Response::HTTP_NOT_FOUND);
+        }
+
+        return Storage::disk('public')->download($file->path, $file->filename);
     }
 
     /**
      * Get trashed files
      */
-    public function trash()
+    public function trash(Request $request)
     {
-        $files = File::where('user_id', Auth::id())
+        $perPage = (int) $request->input('per_page', 15);
+
+        $files = File::with(['authors', 'publisher', 'catalog'])
+            ->where('user_id', auth()->id())
             ->whereNotNull('deleted_at')
-            ->orderBy('deleted_at', 'desc')
-            ->paginate(20);
-        
+            ->orderByDesc('deleted_at')
+            ->paginate($perPage);
+
         return response()->json([
             'success' => true,
-            'data' => $files,
+            'data' => $files->items(),
+            'meta' => [
+                'current_page' => $files->currentPage(),
+                'last_page' => $files->lastPage(),
+                'per_page' => $files->perPage(),
+                'total' => $files->total(),
+            ],
         ]);
     }
 
@@ -205,18 +216,10 @@ class FileController extends Controller
      */
     public function restore($id)
     {
-        $file = File::where('user_id', Auth::id())
-            ->whereNotNull('deleted_at')
-            ->findOrFail($id);
-        
-        $file->deleted_at = null;
-        $file->save();
+        $file = File::where('user_id', auth()->id())->findOrFail($id);
+        $file->update(['deleted_at' => null]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'File restored successfully',
-            'data' => $file,
-        ]);
+    return response()->json(['success' => true, 'message' => 'Khôi phục file thành công.']);
     }
 
     /**
@@ -224,60 +227,98 @@ class FileController extends Controller
      */
     public function forceDelete($id)
     {
-        $file = File::where('user_id', Auth::id())
-            ->whereNotNull('deleted_at')
-            ->findOrFail($id);
-        
+        $file = File::where('user_id', auth()->id())->findOrFail($id);
+
         // Delete physical file
-        if (Storage::disk('local')->exists($file->path)) {
-            Storage::disk('local')->delete($file->path);
+        if (Storage::disk('public')->exists($file->path)) {
+            Storage::disk('public')->delete($file->path);
         }
-        
-        // Update user storage
-        $user = Auth::user();
-        $user->storage_used = $user->storage_used - $file->size;
-        $user->save();
-        
+
         // Delete record
+        $file->authors()->detach();
         $file->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'File permanently deleted',
-        ]);
+    return response()->json(['success' => true, 'message' => 'Xóa vĩnh viễn file thành công.']);
     }
 
     /**
      * Get favourite files
      */
-    public function favourites()
+    public function favourites(Request $request)
     {
-        $files = File::where('user_id', Auth::id())
-            ->whereNull('deleted_at')
+        $perPage = (int) $request->input('per_page', 15);
+
+        $files = File::with(['authors', 'publisher', 'catalog'])
+            ->where('user_id', auth()->id())
             ->where('is_favourite', true)
-            ->orderBy('updated_at', 'desc')
-            ->paginate(20);
-        
+            ->whereNull('deleted_at')
+            ->orderByDesc('created_at')
+            ->paginate($perPage);
+
         return response()->json([
             'success' => true,
-            'data' => $files,
+            'data' => $files->items(),
+            'meta' => [
+                'current_page' => $files->currentPage(),
+                'last_page' => $files->lastPage(),
+                'per_page' => $files->perPage(),
+                'total' => $files->total(),
+            ],
         ]);
     }
 
     /**
      * Get recent files
      */
-    public function recent()
+    public function recent(Request $request)
     {
-        $files = File::where('user_id', Auth::id())
+        $perPage = (int) $request->input('per_page', 15);
+
+        $files = File::with(['authors', 'publisher', 'catalog'])
+            ->where('user_id', auth()->id())
             ->whereNull('deleted_at')
-            ->orderBy('updated_at', 'desc')
-            ->limit(20)
-            ->get();
-        
+            ->orderByDesc('created_at')
+            ->paginate($perPage);
+
         return response()->json([
             'success' => true,
-            'data' => $files,
+            'data' => $files->items(),
+            'meta' => [
+                'current_page' => $files->currentPage(),
+                'last_page' => $files->lastPage(),
+                'per_page' => $files->perPage(),
+                'total' => $files->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Approve file
+     */
+    public function approve($id)
+    {
+        $file = File::where('user_id', auth()->id())->findOrFail($id);
+        $file->update(['approved' => true]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã phê duyệt file.',
+            'data' => $file
+        ]);
+    }
+
+    /**
+     * Unapprove file
+     */
+    public function unapprove($id)
+    {
+        $file = File::where('user_id', auth()->id())->findOrFail($id);
+        $file->update(['approved' => false]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã bỏ phê duyệt file.',
+            'data' => $file
         ]);
     }
 }

@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\PublisherController;
+use App\Http\Controllers\Api\AuthorController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
@@ -42,6 +44,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/files/{id}/force', [FileController::class, 'forceDelete']);
     Route::get('/files/favourites/list', [FileController::class, 'favourites']);
     Route::get('/files/recent/list', [FileController::class, 'recent']);
+    Route::post('/files/{id}/approve', [FileController::class, 'approve']);
+    Route::post('/files/{id}/unapprove', [FileController::class, 'unapprove']);
     
     // Catalog endpoints
     Route::get('/catalogs', [CatalogController::class, 'index']);
@@ -49,7 +53,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/catalogs/{catalog}', [CatalogController::class, 'update']);
     Route::delete('/catalogs/{catalog}', [CatalogController::class, 'destroy']);
     Route::post('/catalogs/{catalog}/toggle', [CatalogController::class, 'toggle']);
-    
+
+    // Publisher endpoints
+    Route::get('/publishers', [PublisherController::class, 'index']);
+    Route::post('/publishers', [PublisherController::class, 'store']);
+    Route::put('/publishers/{publisher}', [PublisherController::class, 'update']);
+    Route::delete('/publishers/{publisher}', [PublisherController::class, 'destroy']);
+
+    // Author endpoints
+    Route::get('/authors', [AuthorController::class, 'index']);
+    Route::post('/authors', [AuthorController::class, 'store']);
+    Route::put('/authors/{author}', [AuthorController::class, 'update']);
+    Route::delete('/authors/{author}', [AuthorController::class, 'destroy']);
+
     // User info
     Route::get('/user', function (Request $request) {
         return $request->user();

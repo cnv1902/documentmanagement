@@ -3,204 +3,115 @@
 namespace App\Http\Controllers;
 
 use App\Models\File;
+use App\Models\Catalog;
+use App\Models\Author;
+use App\Models\Publisher;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\View\View;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 
 class FileController extends Controller
 {
-    /**
-     * Display a listing of files
-     */
-    public function index(Request $request)
+    public function index(Request $request): View
     {
-        $query = File::where('user_id', Auth::id())
-            ->whereNull('deleted_at');
-        
-        // Filter by folder
-        if ($request->has('folder_id')) {
-            $query->where('folder_id', $request->folder_id);
-        }
-        
-        // Search
-        if ($request->has('q') && $request->q) {
-            $query->where('name', 'like', '%' . $request->q . '%');
-        }
-        
-        // Sort
-        $sortBy = $request->get('sort_by', 'created_at');
-        $sortOrder = $request->get('sort_order', 'desc');
-        $query->orderBy($sortBy, $sortOrder);
-        
-        $files = $query->paginate(20);
-        
-        return view('files.index', compact('files'));
+        $q = $request->input('q');
+        $catalogId = $request->input('catalog_id');
+        $publisherId = $request->input('publisher_id');
+        $approved = $request->input('approved');
+
+        $files = File::query()
+            ->with(['catalog', 'authors', 'publisher'])
+            ->when($q, fn($builder) => $builder->where('name', 'like', "%{$q}%"))
+            ->when($catalogId, fn($builder) => $builder->where('catalog_id', $catalogId))
+            ->when($publisherId, fn($builder) => $builder->where('publisher_id', $publisherId))
+            ->when($approved !== null, fn($builder) => $builder->where('approved', $approved))
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
+
+        $catalogs = Catalog::orderBy('name')->get();
+        $authors = Author::orderBy('name')->get();
+        $publishers = Publisher::orderBy('name')->get();
+
+        return view('file.index', compact('files', 'catalogs', 'authors', 'publishers'));
     }
 
-    /**
-     * Show the form for creating a new file
-     */
-    public function create()
-    {
-        $folders = Auth::user()->folders;
-        return view('files.create', compact('folders'));
-    }
-
-    /**
-     * Store a newly created file
-     */
     public function store(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'file' => 'required|file|max:102400', // Max 100MB
-            'folder_id' => 'nullable|exists:folders,id',
+        // Prevent unauthenticated upload to avoid NULL user_id
+        if (!auth()->check()) {
+            return back()->withErrors(['auth' => 'Bạn cần đăng nhập trước khi upload file.']);
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'file' => 'required|file|max:51200',
+            'catalog_id' => 'nullable|exists:catalogs,id',
+            'publisher_id' => 'nullable|exists:publishers,id',
+            'author_ids' => 'required|array',
+            'author_ids.*' => 'exists:authors,id',
+            'approved' => 'nullable',
         ]);
 
-        if ($validator->fails()) {
-            return redirect()->back()
-                ->withErrors($validator)
-                ->withInput();
-        }
-
         $uploadedFile = $request->file('file');
-        $user = Auth::user();
+        $path = $uploadedFile->store('files', 'public');
 
-        // Check storage limit
-        if (($user->storage_used + $uploadedFile->getSize()) > $user->storage_limit) {
-            return redirect()->back()
-                ->withErrors(['file' => 'Not enough storage space.'])
-                ->withInput();
-        }
-
-        // Store file
-        $filename = Str::random(40) . '.' . $uploadedFile->getClientOriginalExtension();
-        $path = $uploadedFile->storeAs('files/' . $user->id, $filename, 'local');
-
-        // Create file record
         $file = File::create([
-            'user_id' => $user->id,
-            'folder_id' => $request->folder_id,
-            'name' => $uploadedFile->getClientOriginalName(),
-            'filename' => $filename,
+            'user_id' => auth()->id(), // set owner
+            'name' => $validated['name'],
+            'filename' => $uploadedFile->getClientOriginalName(), // add this line
+            'original_name' => $uploadedFile->getClientOriginalName(), // keep if column exists
             'path' => $path,
             'size' => $uploadedFile->getSize(),
             'mime_type' => $uploadedFile->getMimeType(),
+            'catalog_id' => $validated['catalog_id'] ?? null,
+            'publisher_id' => $validated['publisher_id'] ?? null,
+            'approved' => $request->boolean('approved'),
         ]);
 
-        // Update user storage
-        $user->storage_used = $user->storage_used + $uploadedFile->getSize();
-        $user->save();
+        $file->authors()->attach($validated['author_ids']);
 
-        return redirect()->route('files.index')
-            ->with('success', 'File uploaded successfully.');
+        return redirect()->route('files.index')->with('success', 'Upload file thành công.');
     }
 
-    /**
-     * Display the specified file
-     */
-    public function show($id)
+    public function edit(File $file): View
     {
-        $file = File::where('user_id', Auth::id())
-            ->whereNull('deleted_at')
-            ->findOrFail($id);
+        $catalogs = Catalog::orderBy('name')->get();
+        $authors = Author::orderBy('name')->get();
+        $publishers = Publisher::orderBy('name')->get();
         
-        return view('files.show', compact('file'));
+        return view('file.edit', compact('file', 'catalogs', 'authors', 'publishers'));
     }
 
-    /**
-     * Download the specified file
-     */
-    public function download($id)
+    public function update(Request $request, File $file)
     {
-        $file = File::where('user_id', Auth::id())
-            ->whereNull('deleted_at')
-            ->findOrFail($id);
-        
-        return response()->download(storage_path('app/' . $file->path), $file->name);
-    }
-
-    /**
-     * Update the specified file
-     */
-    public function update(Request $request, $id)
-    {
-        $file = File::where('user_id', Auth::id())
-            ->whereNull('deleted_at')
-            ->findOrFail($id);
-
-        $validator = Validator::make($request->all(), [
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'folder_id' => 'nullable|exists:folders,id',
+            'catalog_id' => 'nullable|exists:catalogs,id',
+            'publisher_id' => 'nullable|exists:publishers,id',
+            'author_ids' => 'required|array',
+            'author_ids.*' => 'exists:authors,id',
+            'approved' => 'nullable',
+            'is_favourite' => 'nullable',
         ]);
-
-        if ($validator->fails()) {
-            return redirect()->back()
-                ->withErrors($validator)
-                ->withInput();
-        }
 
         $file->update([
-            'name' => $request->name,
-            'folder_id' => $request->folder_id,
+            'name' => $validated['name'],
+            'catalog_id' => $validated['catalog_id'] ?? null,
+            'publisher_id' => $validated['publisher_id'] ?? null,
+            'approved' => $request->boolean('approved'),
+            'is_favourite' => $request->boolean('is_favourite'),
         ]);
 
-        return redirect()->back()
-            ->with('success', 'File updated successfully.');
+        $file->authors()->sync($validated['author_ids']);
+
+        return redirect()->route('files.index')->with('success', 'Cập nhật file thành công.');
     }
 
-    /**
-     * Remove the specified file (soft delete)
-     */
-    public function destroy($id)
+    public function destroy(File $file)
     {
-        $file = File::where('user_id', Auth::id())
-            ->whereNull('deleted_at')
-            ->findOrFail($id);
-        
-        $file->update(['deleted_at' => now()]);
-
-        return redirect()->back()
-            ->with('success', 'File moved to trash.');
-    }
-
-    /**
-     * Permanently delete the file
-     */
-    public function forceDelete($id)
-    {
-        $file = File::where('user_id', Auth::id())
-            ->whereNotNull('deleted_at')
-            ->findOrFail($id);
-        
-        // Delete physical file
-        Storage::disk('local')->delete($file->path);
-        
-        // Update user storage
-        $user = Auth::user();
-        $user->storage_used = $user->storage_used - $file->size;
-        $user->save();
-        
-        // Delete record
+        Storage::disk('public')->delete($file->path);
         $file->delete();
-
-        return redirect()->back()
-            ->with('success', 'File permanently deleted.');
-    }
-
-    /**
-     * Restore a soft deleted file
-     */
-    public function restore($id)
-    {
-        $file = File::where('user_id', Auth::id())
-            ->whereNotNull('deleted_at')
-            ->findOrFail($id);
         
-        $file->update(['deleted_at' => null]);
-
-        return redirect()->back()
-            ->with('success', 'File restored successfully.');
+        return redirect()->route('files.index')->with('success', 'Xoá file thành công.');
     }
 }

@@ -22,8 +22,8 @@ class File extends Model
 
     protected $fillable = [
         'user_id',
-        'folder_id',
         'catalog_id',
+        'publisher_id',
         'name',
         'filename',
         'path',
@@ -31,6 +31,7 @@ class File extends Model
         'mime_type',
         'is_favourite',
         'deleted_at',
+        'approved',
     ];
 
     protected $casts = [
@@ -38,23 +39,24 @@ class File extends Model
         'deleted_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'approved' => 'boolean',
     ];
 
     /**
-     * Get the user that owns the file
+     * Get the authors of the file (many-to-many relationship)
      */
-    public function user()
+    public function authors()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsToMany(Author::class, 'author_file')->withTimestamps();
     }
 
     /**
-     * Get the folder that contains the file
+     * Get the publisher of the file
      */
-
-    /**
-     * Get the catalog that this file belongs to
-     */
+    public function publisher()
+    {
+        return $this->belongsTo(Publisher::class);
+    }
     public function catalog()
     {
         return $this->belongsTo(Catalog::class);
