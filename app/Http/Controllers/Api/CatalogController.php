@@ -10,9 +10,7 @@ use Illuminate\Http\Response;
 
 class CatalogController extends Controller
 {
-    /**
-     * GET /api/catalogs
-     */
+
     public function index(Request $request)
     {
         $q = $request->input('q');
@@ -40,9 +38,6 @@ class CatalogController extends Controller
         ]);
     }
 
-    /**
-     * POST /api/catalogs
-     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -61,9 +56,6 @@ class CatalogController extends Controller
         ], Response::HTTP_CREATED);
     }
 
-    /**
-     * PUT /api/catalogs/{catalog}
-     */
     public function update(Request $request, Catalog $catalog)
     {
         $validated = $request->validate([
@@ -82,10 +74,6 @@ class CatalogController extends Controller
         ]);
     }
 
-    /**
-     * DELETE /api/catalogs/{catalog}
-     * If in use, mark as inactive instead of deleting.
-     */
     public function destroy(Catalog $catalog)
     {
         $hasFiles = File::where('catalog_id', $catalog->id)->exists();
@@ -104,9 +92,6 @@ class CatalogController extends Controller
         ]);
     }
 
-    /**
-     * POST /api/catalogs/{catalog}/toggle
-     */
     public function toggle(Catalog $catalog)
     {
         $catalog->update(['is_active' => ! $catalog->is_active]);

@@ -10,21 +10,17 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
-    /**
-     * Display the dashboard
-     */
+
     public function index()
     {
         $user = Auth::user();
 
-        // Get recent files
         $recentFiles = File::where('user_id', $user->id)
             ->whereNull('deleted_at')
             ->orderBy('updated_at', 'desc')
             ->limit(10)
             ->get();
-        
-    // Calculate statistics
+
         $stats = [
             'total_files' => File::where('user_id', $user->id)
                 ->whereNull('deleted_at')
@@ -53,7 +49,6 @@ class DashboardController extends Controller
                 ->sum('size'),
         ];
         
-        // Top catalogs to display on dashboard
         $catalogs = Catalog::query()
             ->orderBy('name')
             ->withCount('files')

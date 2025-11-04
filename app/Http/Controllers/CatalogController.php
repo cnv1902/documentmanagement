@@ -10,9 +10,7 @@ use Illuminate\View\View;
 
 class CatalogController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+
     public function index(Request $request): View
     {
         $q = $request->input('q');
@@ -26,9 +24,6 @@ class CatalogController extends Controller
         return view('catalogs.index', compact('catalogs', 'q'));
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
@@ -44,9 +39,6 @@ class CatalogController extends Controller
         return back()->with('status', 'Danh mục đã được tạo.');
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(Request $request, Catalog $catalog): RedirectResponse
     {
         $validated = $request->validate([
@@ -62,10 +54,6 @@ class CatalogController extends Controller
         return back()->with('status', 'Danh mục đã được cập nhật.');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     * If the catalog has related files, mark as inactive instead of delete.
-     */
     public function destroy(Catalog $catalog): RedirectResponse
     {
         $hasFiles = File::where('catalog_id', $catalog->id)->exists();
@@ -79,9 +67,6 @@ class CatalogController extends Controller
         return back()->with('status', 'Đã xoá danh mục.');
     }
 
-    /**
-     * Quick toggle active state.
-     */
     public function toggle(Catalog $catalog): RedirectResponse
     {
         $catalog->update(['is_active' => ! $catalog->is_active]);

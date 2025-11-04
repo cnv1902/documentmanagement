@@ -11,9 +11,7 @@ use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
-    /**
-     * Register a new user
-     */
+
     public function register(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -34,7 +32,7 @@ class AuthController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'storage_limit' => 21474836480, // 20GB default
+            'storage_limit' => 21474836480,
             'storage_used' => 0,
         ]);
 
@@ -51,9 +49,6 @@ class AuthController extends Controller
         ], 201);
     }
 
-    /**
-     * Login user
-     */
     public function login(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -90,9 +85,6 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Logout user
-     */
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
@@ -103,9 +95,6 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Get authenticated user
-     */
     public function me(Request $request)
     {
         return response()->json([
@@ -114,9 +103,6 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Update user profile
-     */
     public function updateProfile(Request $request)
     {
         $validator = Validator::make($request->all(), [

@@ -11,9 +11,7 @@ use Illuminate\Support\Facades\Validator;
 
 class FileController extends Controller
 {
-    /**
-     * Display a listing of files
-     */
+
     public function index(Request $request)
     {
         $q = $request->input('q');
@@ -48,14 +46,12 @@ class FileController extends Controller
         ]);
     }
 
-    /**
-     * Store a newly created file
-     */
+
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'file' => 'required|file|max:51200', // 50MB max
+            'file' => 'required|file|max:51200',
             'catalog_id' => 'nullable|exists:catalogs,id',
             'publisher_id' => 'nullable|exists:publishers,id',
             'author_ids' => 'nullable|array',
@@ -70,12 +66,10 @@ class FileController extends Controller
             ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        // Upload file
         $uploadedFile = $request->file('file');
         $filename = time() . '_' . $uploadedFile->getClientOriginalName();
         $path = $uploadedFile->storeAs('files', $filename, 'public');
 
-        // Create file record
         $file = File::create([
             'user_id' => auth()->id(),
             'name' => $request->name,
@@ -88,7 +82,6 @@ class FileController extends Controller
             'approved' => $request->boolean('approved', false),
         ]);
 
-        // Attach authors (many-to-many)
         if ($request->has('author_ids')) {
             $file->authors()->attach($request->author_ids);
         }
@@ -102,9 +95,7 @@ class FileController extends Controller
         ], Response::HTTP_CREATED);
     }
 
-    /**
-     * Display the specified file
-     */
+
     public function show($id)
     {
         $file = File::with(['authors', 'publisher', 'catalog'])
@@ -114,9 +105,7 @@ class FileController extends Controller
     return response()->json(['success' => true, 'data' => $file]);
     }
 
-    /**
-     * Update the specified file
-     */
+
     public function update(Request $request, $id)
     {
         $file = File::where('user_id', auth()->id())->findOrFail($id);
@@ -138,7 +127,6 @@ class FileController extends Controller
             ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        // Update file info
         $file->update($request->only([
             'name',
             'catalog_id',
@@ -147,7 +135,6 @@ class FileController extends Controller
             'approved'
         ]));
 
-        // Sync authors
         if ($request->has('author_ids')) {
             $file->authors()->sync($request->author_ids);
         }
@@ -161,9 +148,6 @@ class FileController extends Controller
         ]);
     }
 
-    /**
-     * Soft delete the specified file
-     */
     public function destroy($id)
     {
         $file = File::where('user_id', auth()->id())->findOrFail($id);
@@ -172,9 +156,6 @@ class FileController extends Controller
     return response()->json(['success' => true, 'message' => 'Đã chuyển file vào thùng rác.']);
     }
 
-    /**
-     * Download file
-     */
     public function download($id)
     {
         $file = File::where('user_id', auth()->id())->findOrFail($id);
@@ -186,9 +167,6 @@ class FileController extends Controller
         return Storage::disk('public')->download($file->path, $file->filename);
     }
 
-    /**
-     * Get trashed files
-     */
     public function trash(Request $request)
     {
         $perPage = (int) $request->input('per_page', 15);
@@ -211,9 +189,6 @@ class FileController extends Controller
         ]);
     }
 
-    /**
-     * Restore file from trash
-     */
     public function restore($id)
     {
         $file = File::where('user_id', auth()->id())->findOrFail($id);
@@ -222,28 +197,20 @@ class FileController extends Controller
     return response()->json(['success' => true, 'message' => 'Khôi phục file thành công.']);
     }
 
-    /**
-     * Permanently delete file
-     */
     public function forceDelete($id)
     {
         $file = File::where('user_id', auth()->id())->findOrFail($id);
 
-        // Delete physical file
         if (Storage::disk('public')->exists($file->path)) {
             Storage::disk('public')->delete($file->path);
         }
 
-        // Delete record
         $file->authors()->detach();
         $file->delete();
 
     return response()->json(['success' => true, 'message' => 'Xóa vĩnh viễn file thành công.']);
     }
 
-    /**
-     * Get favourite files
-     */
     public function favourites(Request $request)
     {
         $perPage = (int) $request->input('per_page', 15);
@@ -267,9 +234,6 @@ class FileController extends Controller
         ]);
     }
 
-    /**
-     * Get recent files
-     */
     public function recent(Request $request)
     {
         $perPage = (int) $request->input('per_page', 15);

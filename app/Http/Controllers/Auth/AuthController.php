@@ -11,17 +11,12 @@ use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
-    /**
-     * Show the login form
-     */
+
     public function showLoginForm()
     {
         return view('auth.login');
     }
 
-    /**
-     * Handle login request
-     */
     public function login(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -48,17 +43,11 @@ class AuthController extends Controller
             ->withInput();
     }
 
-    /**
-     * Show the registration form
-     */
     public function showRegisterForm()
     {
         return view('auth.register');
     }
 
-    /**
-     * Handle registration request
-     */
     public function register(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -79,7 +68,7 @@ class AuthController extends Controller
             'name' => $request->first_name . ' ' . $request->last_name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'storage_limit' => 21474836480, // 20GB default
+            'storage_limit' => 21474836480,
             'storage_used' => 0,
         ]);
 
@@ -89,9 +78,6 @@ class AuthController extends Controller
             ->with('success', 'Đăng ký thành công! Chào mừng bạn đến với EduLib.');
     }
 
-    /**
-     * Handle logout request
-     */
     public function logout(Request $request)
     {
         Auth::logout();

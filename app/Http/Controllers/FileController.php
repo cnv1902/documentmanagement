@@ -37,7 +37,6 @@ class FileController extends Controller
 
     public function store(Request $request)
     {
-        // Prevent unauthenticated upload to avoid NULL user_id
         if (!auth()->check()) {
             return back()->withErrors(['auth' => 'Bạn cần đăng nhập trước khi upload file.']);
         }
@@ -56,10 +55,10 @@ class FileController extends Controller
         $path = $uploadedFile->store('files', 'public');
 
         $file = File::create([
-            'user_id' => auth()->id(), // set owner
+            'user_id' => auth()->id(), 
             'name' => $validated['name'],
-            'filename' => $uploadedFile->getClientOriginalName(), // add this line
-            'original_name' => $uploadedFile->getClientOriginalName(), // keep if column exists
+            'filename' => $uploadedFile->getClientOriginalName(), 
+            'original_name' => $uploadedFile->getClientOriginalName(), 
             'path' => $path,
             'size' => $uploadedFile->getSize(),
             'mime_type' => $uploadedFile->getMimeType(),
